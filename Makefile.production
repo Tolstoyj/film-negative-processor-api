@@ -1,0 +1,101 @@
+# Film Negative Processor - Production Makefile
+# Version: 2.0.0
+
+# Compiler and flags
+CC = gcc
+CFLAGS = -Wall -Wextra -O3 -march=native -flto -pthread
+CFLAGS_DEBUG = -Wall -Wextra -g -O0 -pthread -DDEBUG
+LDFLAGS = -lm -lpthread
+STRIP = strip
+
+# Directories
+SRC_DIR = src
+INC_DIR = include
+BUILD_DIR = build
+BIN_DIR = bin
+
+# Targets
+SERVER_BIN = $(BIN_DIR)/film_server
+CLI_BIN = $(BIN_DIR)/vintage_filter
+
+# Source files
+SERVER_SRC = $(SRC_DIR)/server_v2.c $(SRC_DIR)/film_processor.c
+CLI_SRC = $(SRC_DIR)/vintage_filter.c
+PROCESSOR_SRC = $(SRC_DIR)/film_processor.c
+
+# Include paths
+INCLUDES = -I$(INC_DIR)
+
+# Build modes
+.PHONY: all production debug clean install test help
+
+# Default target
+all: production
+
+# Production build (optimized + stripped)
+production: CFLAGS += -DNDEBUG -DPRODUCTION
+production: directories $(SERVER_BIN) $(CLI_BIN)
+	@echo "✓ Production build complete"
+	@$(STRIP) $(SERVER_BIN) $(CLI_BIN)
+	@echo "✓ Binaries stripped for production"
+
+# Debug build
+debug: CFLAGS = $(CFLAGS_DEBUG)
+debug: directories $(SERVER_BIN) $(CLI_BIN)
+	@echo "✓ Debug build complete"
+
+# Create necessary directories
+directories:
+	@mkdir -p $(BUILD_DIR) $(BIN_DIR)
+
+# Build server
+$(SERVER_BIN): $(SERVER_SRC)
+	@echo "Building production server..."
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(SERVER_SRC) $(LDFLAGS)
+
+# Build CLI tool (standalone, doesn't use film_processor.c to avoid duplicate symbols)
+$(CLI_BIN): $(CLI_SRC)
+	@echo "Building CLI tool..."
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(CLI_SRC) $(LDFLAGS)
+
+# Install (copy to /usr/local/bin)
+install: production
+	@echo "Installing binaries to /usr/local/bin..."
+	@sudo cp $(SERVER_BIN) /usr/local/bin/film_server
+	@sudo cp $(CLI_BIN) /usr/local/bin/vintage_filter
+	@echo "✓ Installation complete"
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning build artifacts..."
+	@rm -rf $(BUILD_DIR) $(BIN_DIR)
+	@rm -f *.o *.log *.jpg *.jpeg *.png
+	@echo "✓ Clean complete"
+
+# Test build
+test: production
+	@echo "Running tests..."
+	@$(SERVER_BIN) --port 9999 &
+	@sleep 2
+	@curl -s http://localhost:9999/health || echo "Server test failed"
+	@killall film_server 2>/dev/null || true
+	@echo "✓ Tests complete"
+
+# Help target
+help:
+	@echo "Film Negative Processor - Production Makefile"
+	@echo ""
+	@echo "Targets:"
+	@echo "  make              - Build production binaries (default)"
+	@echo "  make production   - Build optimized production binaries"
+	@echo "  make debug        - Build debug binaries with symbols"
+	@echo "  make clean        - Remove all build artifacts"
+	@echo "  make install      - Install binaries to /usr/local/bin"
+	@echo "  make test         - Run basic tests"
+	@echo "  make help         - Show this help message"
+	@echo ""
+	@echo "Outputs:"
+	@echo "  bin/film_server      - Production API server"
+	@echo "  bin/vintage_filter   - CLI tool"
+
+.DEFAULT_GOAL := production

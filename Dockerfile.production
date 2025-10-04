@@ -1,0 +1,46 @@
+# Production Dockerfile - Multi-stage build for minimal image size
+FROM gcc:latest AS builder
+
+WORKDIR /build
+
+# Copy source files
+COPY src/ ./src/
+COPY include/ ./include/
+COPY Makefile.production ./Makefile
+
+# Build production binaries
+RUN make production
+
+# Final stage - minimal runtime image
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy binary from builder
+COPY --from=builder /build/bin/film_server /app/film_server
+
+# Create temp directory
+RUN mkdir -p /tmp && chmod 777 /tmp
+
+# Create non-root user
+RUN useradd -r -u 1001 -g daemon filmprocessor && \
+    chown -R filmprocessor:daemon /app /tmp
+
+# Switch to non-root user
+USER filmprocessor
+
+# Expose port
+EXPOSE ${PORT:-8080}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+
+# Run server
+CMD ["./film_server"]

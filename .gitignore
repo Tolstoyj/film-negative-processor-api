@@ -1,0 +1,31 @@
+# Compiled binaries
+*.o
+vintage_filter
+film_server
+film_server_v2
+
+# Test files
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tga
+*.webp
+api_test_results/
+final_test_*
+
+# Logs
+*.log
+server.log
+server_v2.log
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+/tmp/
+*.tmp

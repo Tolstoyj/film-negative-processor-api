@@ -1,0 +1,30 @@
+FROM gcc:latest
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy source files
+COPY src/ ./src/
+COPY include/ ./include/
+COPY Makefile.production ./Makefile
+
+# Build the production server v2.0
+RUN make production
+
+# Create temp directory
+RUN mkdir -p /tmp && chmod 777 /tmp
+
+# Expose port (Railway will set PORT env variable)
+EXPOSE ${PORT:-8080}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+
+# Run server (Railway provides PORT env var)
+CMD ["./bin/film_server"]

@@ -1,0 +1,13 @@
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tga
+vintage_filter
+film_server
+*.o
+.git
+.gitignore
+README.md
+docker-compose.yml
+.env
