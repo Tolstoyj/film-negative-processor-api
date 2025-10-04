@@ -70,7 +70,9 @@ film-processor-api/
 ## 🚀 Deployment Status
 
 ### Railway Deployment
-**Status:** READY ✅
+**Status:** DEPLOYED & OPERATIONAL ✅
+
+**Live URL:** https://film-negative-processor-api-production.up.railway.app
 
 **Files Required:**
 - ✅ Dockerfile.railway
@@ -81,6 +83,11 @@ film-processor-api/
 
 **Environment Variables:**
 - `PORT` - Auto-set by Railway ✅
+
+**Known Issues:**
+- HTTP/2 connections may show PROTOCOL_ERROR due to Railway proxy behavior (cosmetic only)
+- Workaround: Use HTTP/1.1 with `curl --http1.1` for clean transfers
+- Image processing is fully functional despite proxy warnings
 
 ### Docker Deployment
 **Status:** READY ✅

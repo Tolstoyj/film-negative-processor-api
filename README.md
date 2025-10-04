@@ -55,12 +55,22 @@ docker run -p 8080:8080 film-processor
 curl -X POST http://localhost:8080/api/to-negative \
   -F "image=@photo.jpg" \
   -o negative.jpg
+
+# For Railway deployment, use HTTP/1.1 for clean transfers
+curl --http1.1 -X POST https://your-app.railway.app/api/to-negative \
+  -F "image=@photo.jpg" \
+  -o negative.jpg
 ```
 
 ### Convert Back to Positive
 
 ```bash
 curl -X POST http://localhost:8080/api/to-positive \
+  -F "image=@negative.jpg" \
+  -o restored.jpg
+
+# For Railway deployment
+curl --http1.1 -X POST https://your-app.railway.app/api/to-positive \
   -F "image=@negative.jpg" \
   -o restored.jpg
 ```
