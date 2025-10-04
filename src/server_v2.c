@@ -22,6 +22,11 @@
 #define MAX_CLIENTS 200
 #define TEMP_DIR "/tmp"
 
+// Platform compatibility
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 // Global server state
 int server_running = 1;
 
@@ -74,9 +79,25 @@ void send_response(int client_socket, int status_code, const char *status_text,
         "\r\n",
         status_code, status_text, content_type, body_len);
 
-    send(client_socket, header, header_len, 0);
+    // Send header
+    ssize_t sent = send(client_socket, header, header_len, MSG_NOSIGNAL);
+    if (sent < 0) {
+        log_msg(LOG_ERROR, "Failed to send response header");
+        return;
+    }
+
+    // Send body in chunks to handle large files
     if (body && body_len > 0) {
-        send(client_socket, body, body_len, 0);
+        size_t total_sent = 0;
+        while (total_sent < body_len) {
+            ssize_t chunk_sent = send(client_socket, body + total_sent,
+                                      body_len - total_sent, MSG_NOSIGNAL);
+            if (chunk_sent < 0) {
+                log_msg(LOG_ERROR, "Failed to send response body");
+                return;
+            }
+            total_sent += chunk_sent;
+        }
     }
 }
 
@@ -277,6 +298,9 @@ void handle_post_request(int client_socket, const char *path, const char *header
         return;
     }
 
+    // Ensure file is fully written to disk
+    sync();
+
     // Read file
     FILE *fp = fopen(temp_filename, "rb");
     if (!fp) {
@@ -288,6 +312,13 @@ void handle_post_request(int client_socket, const char *path, const char *header
     fseek(fp, 0, SEEK_END);
     long file_size = ftell(fp);
     fseek(fp, 0, SEEK_SET);
+
+    if (file_size <= 0) {
+        fclose(fp);
+        unlink(temp_filename);
+        send_error(client_socket, 500, "Invalid output file size");
+        return;
+    }
 
     unsigned char *file_data = malloc(file_size);
     if (!file_data) {
@@ -301,11 +332,18 @@ void handle_post_request(int client_socket, const char *path, const char *header
     fclose(fp);
     unlink(temp_filename);
 
-    if (read_size != file_size) {
+    if (read_size != (size_t)file_size) {
+        char log_buf[256];
+        snprintf(log_buf, sizeof(log_buf), "File size mismatch: expected %ld, read %zu", file_size, read_size);
+        log_msg(LOG_ERROR, log_buf);
         free(file_data);
         send_error(client_socket, 500, "Failed to read complete file");
         return;
     }
+
+    char log_buf[256];
+    snprintf(log_buf, sizeof(log_buf), "Sending JPEG response: %zu bytes", read_size);
+    log_msg(LOG_DEBUG, log_buf);
 
     log_msg(LOG_INFO, "Image processed successfully");
     send_response(client_socket, 200, "OK", "image/jpeg", file_data, file_size);
